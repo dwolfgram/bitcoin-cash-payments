@@ -1,4 +1,4 @@
-const bch = require('bitcore-lib-cash')
+const bch = require('bitcoincashjs')
 const bitcoin = require('bitcoinjs-lib')
 const bchaddr = require('bchaddrjs')
 const request = require('request')
@@ -57,7 +57,7 @@ BitcoinCashDepositUtils.prototype.validateAddress = function (address) {
 }
 
 BitcoinCashDepositUtils.prototype.getAddress = function(node, network) {
-  const keyPair = bitcoin.ECPair.makeRandom({ network })
+  const keyPair = bitcoin.ECPair.fromWIF(node.toWIF(), network)
   let { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network })
   address = bchaddr.toCashAddress(address)
   return address
@@ -106,7 +106,6 @@ BitcoinCashDepositUtils.prototype.getUTXOs = function(node, network, done) {
 
 BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done, retryUrl, originalResponse) {
   let self = this
-  console.log(txObject)
   let textBody = '{"rawtx":"' + txObject.signedTx + '"}'
   const broadcastHeaders = {
     'pragma': 'no-cache',
@@ -118,7 +117,7 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done
     'content-type': 'application/json;charset=UTF-8',
     'accept': 'application/json, text/plain, */*',
     'cache-control': 'no-cache',
-    'authority': 'blockexplorer.com',
+    'authority': 'blockdozer.com',
     'referer': 'https://blockdozer.com/tx/send'
   }
   let url
@@ -148,7 +147,6 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done
 BitcoinCashDepositUtils.prototype.getTransaction = function(node, network, to, amount, utxo, feePerByte) {
   let self = this
   amount = sb.toSatoshi(amount)
-  console.log(utxo)
   const transaction = new bch.Transaction()
   let totalBalance = 0
   if (utxo.length === 0) {
@@ -167,6 +165,7 @@ BitcoinCashDepositUtils.prototype.getTransaction = function(node, network, to, a
   const wif = node.toWIF()
   const keyPair = bitcoin.ECPair.fromWIF(wif, network)
   transaction.sign(keyPair.privateKey)
+  console.log(transaction)
   return { signedTx: transaction.toString(), txid: transaction.toObject().hash }
 }
 
