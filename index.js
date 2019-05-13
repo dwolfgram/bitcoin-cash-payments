@@ -4,14 +4,14 @@ const bchaddr = require('bchaddrjs')
 const request = require('request')
 const sb = require('satoshi-bitcoin')
 const MIN_RELAY_FEE = 1000
-const DEFAULT_SAT_PER_BYTE = 5
+const DEFAULT_SAT_PER_BYTE = 1
 
 function BitcoinCashDepositUtils (options) {
   if (!(this instanceof BitcoinCashDepositUtils)) return new BitcoinCashDepositUtils(options)
   let self = this
   self.options = Object.assign({}, options || {})
   if (!self.options.insightUrl) {
-    self.options.insightUrl = 'https://bitcoincash.blockexplorer.com/api/'
+    self.options.insightUrl = 'https://blockdozer.com/api/'
     console.log('WARN: Using default bch block explorer. It is highly suggested you set one yourself!', self.options.insightUrl)
   }
 
@@ -21,12 +21,12 @@ function BitcoinCashDepositUtils (options) {
   if (!self.options.network || (self.options.network === 'mainnet')) {
     self.options.network = bch.Networks.livenet
     if (!self.options.backupBroadcastUrl) {
-      self.options.backupBroadcastUrl = 'https://bitcoincash.blockexplorer.com/api/'
+      self.options.backupBroadcastUrl = 'https://blockdozer.com/api/'
     }
   } else if (self.options.network === 'testnet') {
     self.options.network = bch.Networks.testnet
     if (!self.options.backupBroadcastUrl) {
-      self.options.backupBroadcastUrl = 'https://bitcoincash.blockexplorer.com/api/'
+      self.options.backupBroadcastUrl = 'https://blockdozer.com/api/'
     }
   } else {
     return new Error('Invalid network provided ' + self.options.network)
@@ -108,11 +108,12 @@ BitcoinCashDepositUtils.prototype.getUTXOs = function(node, network, done) {
 
 BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done, retryUrl, originalResponse) {
   let self = this
+  console.log(txObject)
   let textBody = '{"rawtx":"' + txObject.signedTx + '"}'
   const broadcastHeaders = {
     'pragma': 'no-cache',
     'cookie': '__cfduid=d365c2b104e8c0e947ad9991de7515e131528318303',
-    'origin': 'https://blockexplorer.com',
+    'origin': 'https://blockdozer.com',
     'accept-encoding': 'gzip, deflate, br',
     'accept-language': 'en-US,en;q=0.9,fr;q=0.8,es;q=0.7',
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36',
@@ -120,7 +121,7 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done
     'accept': 'application/json, text/plain, */*',
     'cache-control': 'no-cache',
     'authority': 'blockexplorer.com',
-    'referer': 'https://blockexplorer.com/tx/send'
+    'referer': 'https://blockdozer.com/tx/send'
   }
   let url
   if (retryUrl) url = retryUrl
