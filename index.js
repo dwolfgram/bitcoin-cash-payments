@@ -19,12 +19,10 @@ function BitcoinCashDepositUtils (options) {
     self.options.feePerByte = DEFAULT_SAT_PER_BYTE
   }
   if (!self.options.network || (self.options.network === 'mainnet')) {
-    self.options.network = bch.Networks.livenet
     if (!self.options.backupBroadcastUrl) {
       self.options.backupBroadcastUrl = 'https://blockdozer.com/api/'
     }
   } else if (self.options.network === 'testnet') {
-    self.options.network = bch.Networks.testnet
     if (!self.options.backupBroadcastUrl) {
       self.options.backupBroadcastUrl = 'https://blockdozer.com/api/'
     }
@@ -97,7 +95,7 @@ BitcoinCashDepositUtils.prototype.getUTXOs = function(node, network, done) {
         delete utxo['ts']
         cleanUTXOs.push(utxo)
       })
-      if (self.options.network === bch.Networks.testnet) {
+      if (self.options.network === 'testnet') {
         console.log('TESTNET ENABLED: Clipping UTXO length to 2 for test purposes')
         cleanUTXOs = cleanUTXOs.slice(0, 2)
       }
@@ -150,6 +148,7 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done
 BitcoinCashDepositUtils.prototype.getTransaction = function(node, network, to, amount, utxo, feePerByte) {
   let self = this
   amount = sb.toSatoshi(amount)
+  console.log(utxo)
   const transaction = new bch.Transaction()
   let totalBalance = 0
   if (utxo.length === 0) {
