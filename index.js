@@ -1,4 +1,4 @@
-const bch = require('bitcoincashjs')
+const bch = require('bitcore-lib-cash')
 const bitcoin = require('bitcoinjs-lib')
 const bchaddr = require('bchaddrjs')
 const request = require('request')
