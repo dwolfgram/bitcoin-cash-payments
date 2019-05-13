@@ -1,9 +1,11 @@
 const bch = require('bitcoincashjs')
+const bitcoin = require('bitcoinjs-lib')
 const bchaddr = require('bchaddrjs')
 const request = require('request')
+const sb = require('satoshi-bitcoin')
 const MIN_RELAY_FEE = 1000
-const DEFAULT_SAT_PER_BYTE = 1
-const CASH_ADDR_FORMAT = bch.Address.CashAddrFormat
+const DEFAULT_SAT_PER_BYTE = 5
+
 function BitcoinCashDepositUtils (options) {
   if (!(this instanceof BitcoinCashDepositUtils)) return new BitcoinCashDepositUtils(options)
   let self = this
@@ -33,45 +35,6 @@ function BitcoinCashDepositUtils (options) {
   return self
 }
 
-BitcoinCashDepositUtils.prototype.bip44 = function (xpub, path) {
-  let self = this
-  let node = new bch.HDPublicKey(xpub)
-  let child = node.derive('m/0').derive(path)
-  let address = new bch.Address(child.publicKey, self.options.network)
-  let addrstr = address.toString(CASH_ADDR_FORMAT).split(':')
-  if (addrstr.length === 2) {
-    return addrstr[1]
-  } else {
-    return new Error('Unable to derive cash address for ' + address)
-  }
-}
-
-BitcoinCashDepositUtils.prototype.getPrivateKey = function (xprv, path) {
-  let self = this
-  if (!xprv) throw new Error('Xprv is null. Bad things will happen to you.')
-  let node = new bch.HDPrivateKey(xprv)
-  let child = node.derive("m/44'/145'/0'/0").derive(0).derive(path)
-  let privateKey = new bch.PrivateKey(child.privateKey, self.options.network)
-  return privateKey.toWIF()
-
-// const node = bch.HDNode.fromBase58(xprv, self.options.network)
-// let child = node.derivePath("m/44'/0'/0'/0")
-// let nodeDerivation = child.derive(0).derive(path)
-// return nodeDerivation.keyPair.toWIF()
-}
-
-BitcoinCashDepositUtils.prototype.privateToPublic = function (privateKey) {
-  let self = this
-  let PrivateKey = bch.PrivateKey
-  let address = PrivateKey.fromWIF(privateKey).toAddress(self.options.network)
-  let addrstr = address.toString(CASH_ADDR_FORMAT).split(':')
-  if (addrstr.length === 2) {
-    return addrstr[1]
-  } else {
-    return new Error('Unable to derive cash address for ' + privateKey)
-  }
-}
-
 // Convert a bitcoincash address to a standard address
 BitcoinCashDepositUtils.prototype.standardizeAddress = function (address) {
   return bchaddr.toLegacyAddress(address)
@@ -95,39 +58,31 @@ BitcoinCashDepositUtils.prototype.validateAddress = function (address) {
   return resp
 }
 
-BitcoinCashDepositUtils.prototype.generateNewKeys = function (entropy) {
-  let self = this
-  var root = bch.HDPrivateKey.fromSeed(entropy, self.options.network)
-  return {
-    xprv: root.xprivkey,
-    xpub: self.getXpubFromXprv(root.xprivkey)
-  }
+BitcoinCashDepositUtils.prototype.getAddress = function(node, network) {
+  const keyPair = bitcoin.ECPair.makeRandom({ network })
+  let { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network })
+  address = bchaddr.toCashAddress(address)
+  return address
 }
 
-BitcoinCashDepositUtils.prototype.getXpubFromXprv = function (xprv) {
-  let node = new bch.HDPrivateKey(xprv)
-  let child = node.derive("m/44'/145'/0'/0")
-  return child.xpubkey
-}
-
-BitcoinCashDepositUtils.prototype.getBalance = function (address, done) {
+BitcoinCashDepositUtils.prototype.getBalance = function(address, options = {}, done) {
   let self = this
   let url = self.options.insightUrl + 'addr/' + address
-  request.get({json: true, url: url}, function (err, response, body) {
+  request.get({ json: true, url: url }, (err, response, body) => {
     if (!err && response.statusCode !== 200) {
-      return done(new Error('Unable to get balance from ' + url))
+      return done('Unable to get balance from ' + url)
     } else {
-      done(null, {balance: body.balance, unconfirmedBalance: body.unconfirmedBalance})
+      done(null, { balance: body.balance, unconfirmedBalance: body.unconfirmedBalance })
     }
   })
 }
 
-BitcoinCashDepositUtils.prototype.getUTXOs = function (xpub, path, done) {
+BitcoinCashDepositUtils.prototype.getUTXOs = function(node, network, done) {
   let self = this
-  let address = self.bip44(xpub, path)
+  let address = self.getAddress(node, network)
   // console.log('sweeping ', address)
   let url = self.options.insightUrl + 'addr/' + address + '/utxo'
-  request.get({json: true, url: url}, function (err, response, body) {
+  request.get({ json: true, url: url }, function (err, response, body) {
     if (!err && response.statusCode !== 200) {
       return done(new Error('Unable to get UTXOs from ' + url))
     } else {
@@ -150,34 +105,14 @@ BitcoinCashDepositUtils.prototype.getUTXOs = function (xpub, path, done) {
     }
   })
 }
-BitcoinCashDepositUtils.prototype.getSweepTransaction = function (xprv, path, to, utxo, feePerByte) {
-  let self = this
-  let transaction = new bch.Transaction()
-  let totalBalance = 0
-  if (utxo.length === 0) {
-    return new Error('no UTXOs')
-  }
-  utxo.forEach(function (spendable) {
-    totalBalance += spendable.satoshis
-    transaction.from(spendable)
-  })
-  if (!feePerByte) feePerByte = self.options.feePerByte
-  let txfee = estimateTxFee(feePerByte, utxo.length, 1, true)
-  if (txfee < MIN_RELAY_FEE) txfee = MIN_RELAY_FEE
-  if ((totalBalance - txfee) < txfee) return new Error('Balance too small to sweep!' + totalBalance + ' ' + txfee)
-  to = self.standardizeAddress(to)
-  transaction.to(to, totalBalance - txfee)
-  transaction.sign(self.getPrivateKey(xprv, path))
-  return { signedTx: transaction.toString(), txid: transaction.toObject().hash }
-}
 
-BitcoinCashDepositUtils.prototype.broadcastTransaction = function (txObject, done, retryUrl, originalResponse) {
+BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done, retryUrl, originalResponse) {
   let self = this
   let textBody = '{"rawtx":"' + txObject.signedTx + '"}'
   const broadcastHeaders = {
     'pragma': 'no-cache',
     'cookie': '__cfduid=d365c2b104e8c0e947ad9991de7515e131528318303',
-    'origin': 'https://bitcoincash.blockexplorer.com',
+    'origin': 'https://blockexplorer.com',
     'accept-encoding': 'gzip, deflate, br',
     'accept-language': 'en-US,en;q=0.9,fr;q=0.8,es;q=0.7',
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36',
@@ -185,7 +120,7 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function (txObject, don
     'accept': 'application/json, text/plain, */*',
     'cache-control': 'no-cache',
     'authority': 'blockexplorer.com',
-    'referer': 'https://bitcoincash.blockexplorer.com/tx/send'
+    'referer': 'https://blockexplorer.com/tx/send'
   }
   let url
   if (retryUrl) url = retryUrl
@@ -196,7 +131,7 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function (txObject, don
     headers: broadcastHeaders,
     body: textBody
   }
-  request(options, function (error, response, body) {
+  request(options, (error, response, body) => {
     if (!error && response.statusCode === 200) {
       txObject.broadcasted = true
       done(null, txObject)
@@ -205,17 +140,41 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function (txObject, don
         self.broadcastTransaction(txObject, done, self.options.backupBroadcastUrl, body)
       } else {
         // Second attempt failed
-        done(new Error('unable to broadcast. Some debug info: ' + body.toString() + ' ---- ' + originalResponse.toString()))
+        done('unable to broadcast. Some debug info: ' + body.toString() + ' ---- ' + originalResponse.toString())
       }
     }
   })
 }
 
-BitcoinCashDepositUtils.prototype.sweepTransaction = function (xpub, xprv, path, to, feePerByte, done) {
+BitcoinCashDepositUtils.prototype.getTransaction = function(node, network, to, amount, utxo, feePerByte) {
   let self = this
-  self.getUTXOs(xpub, path, function (err, utxo) {
+  amount = sb.toSatoshi(amount)
+  const transaction = new bch.Transaction()
+  let totalBalance = 0
+  if (utxo.length === 0) {
+    return new Error('no UTXOs')
+  }
+  utxo.forEach(function(spendable) {
+    totalBalance += spendable.satoshis
+    transaction.from(spendable) // alice1 unspent
+  })
+  if (!feePerByte) feePerByte = self.options.feePerByte
+  let txfee = estimateTxFee(feePerByte, utxo.length, 1, true)
+  if (txfee < MIN_RELAY_FEE) txfee = MIN_RELAY_FEE
+  if ((amount - txfee) > totalBalance) return new Error('Balance too small!' + totalBalance + ' ' + txfee)
+  to = self.standardizeAddress(to)
+  transaction.to(to, amount - txfee)
+  const wif = node.toWIF()
+  const keyPair = bitcoin.ECPair.fromWIF(wif, network)
+  transaction.sign(keyPair.privateKey)
+  return { signedTx: transaction.toString(), txid: transaction.toObject().hash }
+}
+
+BitcoinCashDepositUtils.prototype.transaction = function(node, coin, to, amount, options = {}, done) {
+  let self = this
+  self.getUTXOs(node, coin.network, (err, utxo) => {
     if (err) return done(err)
-    let signedTx = self.getSweepTransaction(xprv, path, to, utxo, feePerByte)
+    let signedTx = self.getTransaction(node, coin.network, to, amount, utxo, options.feePerByte)
     self.broadcastTransaction(signedTx, done)
   })
 }
@@ -224,7 +183,7 @@ BitcoinCashDepositUtils.prototype.sweepTransaction = function (xpub, xprv, path,
  * Estimate size of transaction a certain number of inputs and outputs.
  * This function is based off of ledger-wallet-webtool/src/TransactionUtils.js#estimateTransactionSize
  */
-function estimateTxSize (inputsCount, outputsCount, handleSegwit) {
+const estimateTxSize = function(inputsCount, outputsCount, handleSegwit) {
   var maxNoWitness,
     maxSize,
     maxWitness,
@@ -278,6 +237,17 @@ function estimateTxFee (satPerByte, inputsCount, outputsCount, handleSegwit) {
   const { min, max } = estimateTxSize(inputsCount, outputsCount, handleSegwit)
   const mean = Math.ceil((min + max) / 2)
   return mean * satPerByte
+}
+
+BitcoinCashDepositUtils.prototype.getFee = function(node, network, options = {}, done) {
+  let self = this
+  const feePerByte = options.feePerByte || self.options.feePerByte
+  self.getUTXOs(node, network, (err, utxo) => {
+    if (!err) {
+      return done(null, estimateTxFee(feePerByte, utxo.length, 1, true))
+    }
+    return done(err)
+  })
 }
 
 module.exports = BitcoinCashDepositUtils

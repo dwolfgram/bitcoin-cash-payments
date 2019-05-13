@@ -11,33 +11,36 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/go-faast/bitcoin-cash-payments.git"
+    "url": "git+https://github.com/dwolfgram/bitcoin-cash-payments.git"
   },
   "keywords": [
     "bitcoin",
     "bitcoincash",
     "bip44",
     "blockchain",
-    "faast",
-    "bitaccess",
     "payments"
   ],
-  "author": "Moe Adham",
+  "author": "Dan Wolfgram",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/go-faast/bitcoin-cash-payments/issues"
+    "url": "https://github.com/dwolfgram/bitcoin-cash-payments/issues"
   },
   "homepage": "https://github.com/go-faast/bitcoin-cash-payments#readme",
   "devDependencies": {
     "async": "^2.6.1",
+    "babel-eslint": "^10.0.1",
     "chai": "^4.1.2",
+    "eslint": "^5.16.0",
+    "eslint-plugin-import": "^2.17.2",
     "mocha": "^5.2.0",
     "standard": "^11.0.1"
   },
   "dependencies": {
     "bchaddrjs": "0.2.1",
     "bitcoincashjs": "0.1.10",
+    "bitcoinjs-lib": "^5.0.3",
     "cashaddrjs": "0.2.8",
-    "request": "2.87.0"
+    "request": "2.87.0",
+    "satoshi-bitcoin": "^1.0.4"
   }
 }
