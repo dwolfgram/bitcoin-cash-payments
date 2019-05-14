@@ -1,4 +1,4 @@
-const axios = require('axios')
+const axios = require('axios').default
 const bch = require('bitcoincashjs')
 const bchaddr = require('bchaddrjs')
 const request = require('request')
