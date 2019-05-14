@@ -1,5 +1,4 @@
-const bch = require('bitcore-lib-cash')
-const bitcoin = require('bitcoinjs-lib')
+const bch = require('bitcoincashjs')
 const bchaddr = require('bchaddrjs')
 const request = require('request')
 const sb = require('satoshi-bitcoin')
@@ -57,15 +56,14 @@ BitcoinCashDepositUtils.prototype.validateAddress = function (address) {
 }
 
 BitcoinCashDepositUtils.prototype.getAddress = function(node, network) {
-  const keyPair = bitcoin.ECPair.fromWIF(node.toWIF(), network)
-  let { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network })
-  address = bchaddr.toCashAddress(address)
+  const address = new bch.PrivateKey(node.toWIF(), 'livenet').toAddress().toString()
+  console.log(address)
   return address
 }
 
 BitcoinCashDepositUtils.prototype.getBalance = function(address, options = {}, done) {
   let self = this
-  let url = self.options.insightUrl + 'addr/' + address
+  let url = self.options.insightUrl + 'addr/' + bchaddr.toCashAddress(address)
   request.get({ json: true, url: url }, (err, response, body) => {
     if (!err && response.statusCode !== 200) {
       return done('Unable to get balance from ' + url)
@@ -77,7 +75,7 @@ BitcoinCashDepositUtils.prototype.getBalance = function(address, options = {}, d
 
 BitcoinCashDepositUtils.prototype.getUTXOs = function(node, network, done) {
   let self = this
-  let address = self.getAddress(node, network)
+  let address = self.standardizeAddress(self.getAddress(node, network))
   // console.log('sweeping ', address)
   let url = self.options.insightUrl + 'addr/' + address + '/utxo'
   request.get({ json: true, url: url }, function (err, response, body) {
@@ -162,9 +160,8 @@ BitcoinCashDepositUtils.prototype.getTransaction = function(node, network, to, a
   if ((amount - txfee) > totalBalance) return new Error('Balance too small!' + totalBalance + ' ' + txfee)
   to = self.standardizeAddress(to)
   transaction.to(to, amount - txfee)
-  const wif = node.toWIF()
-  const keyPair = bitcoin.ECPair.fromWIF(wif, network)
-  transaction.sign(keyPair.privateKey)
+  const privateKey = new bch.PrivateKey(node.toWIF(), 'livenet').toWIF()
+  transaction.sign(privateKey)
   console.log(transaction)
   return { signedTx: transaction.toString(), txid: transaction.toObject().hash }
 }
