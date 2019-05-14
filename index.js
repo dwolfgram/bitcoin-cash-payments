@@ -176,6 +176,32 @@ BitcoinCashDepositUtils.prototype.transaction = function(node, coin, to, amount,
   })
 }
 
+BitcoinCashDepositUtils.prototype.getTxHistory = async function(address, done) {
+  let self = this
+  try {
+    const response = await axios.get(`${self.options.explorerUrl}txs`, {
+      params: {
+        address: address
+      }
+    })
+    const history = response.data.txs.map(tx => {
+      const { txid, vout = [{}], vin = [{}], fees, valueIn, valueOut, time } = tx
+      return ({ 
+        txid: txid, 
+        sendAddress: vout[0].addresses ? vout[0].addresses[0] : undefined,
+        receiveAddress: vin[0].addr,
+        fee: fees,
+        amountSent: valueIn,
+        amountReceived: valueOut,
+        date: time
+      })
+    })
+    return done(null, history)
+  } catch (err) {
+    return done(`unable to fetch transaction history: ${err}`)
+  }
+}
+
 /**
  * Estimate size of transaction a certain number of inputs and outputs.
  * This function is based off of ledger-wallet-webtool/src/TransactionUtils.js#estimateTransactionSize
@@ -227,32 +253,6 @@ const estimateTxSize = function(inputsCount, outputsCount, handleSegwit) {
   return {
     min: minSize,
     max: maxSize
-  }
-}
-
-BitcoinCashDepositUtils.prototype.getTxHistory = async function(address, done) {
-  let self = this
-  try {
-    const response = await axios.get(`${self.options.explorerUrl}/txs`, {
-      params: {
-        address: address
-      }
-    })
-    const history = response.data.txs.map(tx => {
-      const { txid, vout = [{}], vin = [{}], fees, valueIn, valueOut, time } = tx
-      return ({ 
-        txid: txid, 
-        sendAddress: vout[0].addresses ? vout[0].addresses[0] : undefined,
-        receiveAddress: vin[0].addr,
-        fee: fees,
-        amountSent: valueIn,
-        amountReceived: valueOut,
-        date: time
-      })
-    })
-    return done(null, history)
-  } catch (err) {
-    return done(`unable to fetch transaction history: ${err}`)
   }
 }
 
