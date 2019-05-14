@@ -36,6 +36,7 @@
     "standard": "^11.0.1"
   },
   "dependencies": {
+    "axios": "^0.18.0",
     "bchaddrjs": "0.2.1",
     "bitcoincashjs": "0.1.10",
     "cashaddrjs": "0.2.8",
