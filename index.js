@@ -58,7 +58,6 @@ BitcoinCashDepositUtils.prototype.validateAddress = function (address) {
 
 BitcoinCashDepositUtils.prototype.getAddress = function(node, network) {
   const address = new bch.PrivateKey(node.toWIF(), 'livenet').toAddress().toString()
-  console.log(address)
   return address
 }
 
@@ -163,7 +162,6 @@ BitcoinCashDepositUtils.prototype.getTransaction = function(node, network, to, a
   transaction.to(to, amount - txfee)
   const privateKey = new bch.PrivateKey(node.toWIF(), 'livenet').toWIF()
   transaction.sign(privateKey)
-  console.log(transaction)
   return { signedTx: transaction.toString(), txid: transaction.toObject().hash }
 }
 
