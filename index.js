@@ -131,7 +131,7 @@ BitcoinCashDepositUtils.prototype.broadcastTransaction = function(txObject, done
   request(options, (error, response, body) => {
     if (!error && response.statusCode === 200) {
       txObject.broadcasted = true
-      done(null, txObject)
+      done(null, txObject.txid)
     } else {
       if (url !== retryUrl) { // First broadcast attempt. Lets try again.
         self.broadcastTransaction(txObject, done, self.options.backupBroadcastUrl, body)
