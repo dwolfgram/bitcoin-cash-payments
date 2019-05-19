@@ -61,16 +61,15 @@ BitcoinCashDepositUtils.prototype.getAddress = function(node, network) {
   return address
 }
 
-BitcoinCashDepositUtils.prototype.getBalance = function(address, options = {}, done) {
+BitcoinCashDepositUtils.prototype.getBalance = async function(address, options = {}, done) {
   let self = this
   let url = self.options.insightUrl + 'addr/' + bchaddr.toCashAddress(address)
-  request.get({ json: true, url: url }, (err, response, body) => {
-    if (!err && response.statusCode !== 200) {
-      return done('Unable to get balance from ' + url)
-    } else {
-      done(null, { balance: body.balance, unconfirmedBalance: body.unconfirmedBalance })
-    }
-  })
+  try {
+    const { data } = await axios.get(url)
+    return done(null, { balance: data.balance, unconfirmedBalance: data.unconfirmedBalance })
+  } catch (err) {
+    return done('Unable to get balance from ' + url)
+  }
 }
 
 BitcoinCashDepositUtils.prototype.getUTXOs = function(node, network, done) {
